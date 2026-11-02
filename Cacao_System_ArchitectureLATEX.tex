@@ -1,0 +1,1060 @@
+% !TEX program = lualatex
+% =====================================================================
+%  MOVE Prosthetics -- Cacao System Architecture, Rev 3.0
+%  Built from the MOVE document template.
+%  Compile with LuaLaTeX, twice.
+% =====================================================================
+\documentclass{article}
+
+% =====================================================================
+%  DOCUMENT DETAILS
+% =====================================================================
+\newcommand\OrgName{MOVE Prosthetics}
+\newcommand\DocType{System Architecture}
+\newcommand\ProjTitle{Cacao — EMG-Controlled Prosthetic Hand}
+\newcommand\ProjShort{Cacao System Architecture}
+\newcommand\ProjTagline{The complete build, in pipeline order: skin to fingers}
+\newcommand\ProjAudience{All MOVE teams}
+\newcommand\ProjName{Cacao}
+\newcommand\ProjRev{3.0}
+\newcommand\ProjDate{02.11.2026}
+\newcommand\ProjAuthor{Antonio Salas}
+\newcommand\ProjReference{TI ADS1299 datasheet, SBAS499}
+
+% =====================================================================
+%  Document Design -- no edits needed below this line
+% =====================================================================
+\usepackage{iftex}
+\RequireLuaTeX
+
+\usepackage[letterpaper,margin=1in,nohead,nofoot]{geometry}
+\usepackage{fontspec}
+\usepackage{xcolor}
+\usepackage{lastpage}
+\usepackage{graphicx}
+\usepackage[hidelinks,bookmarksopen=true]{hyperref}
+
+% ---------------------------------------------------------------------
+%  Colours
+% ---------------------------------------------------------------------
+\definecolor{txt}{HTML}{222222}      % body text
+\definecolor{navy}{HTML}{10456E}     % title, Heading 1, box titles
+\definecolor{docblue}{HTML}{1F6FB0}  % Heading 2, rules, table headers
+\definecolor{hthree}{HTML}{333333}   % Heading 3
+\definecolor{grey}{HTML}{555555}     % subtitle, header/footer, notes
+\definecolor{hfrule}{HTML}{CCCCCC}   % header/footer rules
+\definecolor{tblrule}{HTML}{BBBBBB}  % table borders
+\definecolor{rowalt}{HTML}{F4F8FB}   % alternating row shading
+\definecolor{callbg}{HTML}{EAF2F8}   % blue call-out background
+\definecolor{warnbg}{HTML}{FFF4E5}   % orange call-out background
+\definecolor{warnbar}{HTML}{D9822B}  % orange call-out bar
+\definecolor{link}{HTML}{1155CC}     % hyperlink
+\definecolor{phcolor}{HTML}{B0157C}  % placeholders (template only)
+
+% ---------------------------------------------------------------------
+%  Fonts.
+% ---------------------------------------------------------------------
+\IfFontExistsTF{DejaVu Sans}{\def\FBsans{DejaVu Sans}}{\def\FBsans{FreeSans}}
+\IfFontExistsTF{DejaVu Sans Mono}%
+  {\def\FBmono{DejaVu Sans Mono:mode=node;extend=0.9132;}}%
+  {\def\FBmono{FreeMono:mode=node;extend=0.9163;}}
+\directlua{
+  luaotfload.add_fallback('docfb',  {'\FBsans:mode=node;'})
+  luaotfload.add_fallback('docfbB', {'\FBsans/B:mode=node;'})
+  luaotfload.add_fallback('docfbM', {'\FBmono', '\FBsans:mode=node;'})
+}
+\defaultfontfeatures{Ligatures=TeXOff,WordSpace={1,0,0}}
+\defaultfontfeatures[\rmfamily,\sffamily,\ttfamily]{Ligatures=TeXOff,WordSpace={1,0,0}}
+\IfFontExistsTF{Calibri}{\def\MainFont{Calibri}}{\def\MainFont{Carlito}}
+\setmainfont{\MainFont}[Ligatures=TeXOff, RawFeature={fallback=docfb},
+  BoldFeatures={RawFeature={fallback=docfbB}}]
+\IfFontExistsTF{Consolas}{\newfontfamily\monofont{Consolas}[RawFeature={fallback=docfbM}]}{%
+  \IfFontExistsTF{Inconsolatazi4}%
+    {\newfontfamily\monofont{Inconsolatazi4}[FakeStretch=1.0996,RawFeature={fallback=docfbM}]}%
+    {\newfontfamily\monofont{DejaVu Sans Mono}[FakeStretch=0.9132,RawFeature={fallback=docfbM}]}}
+
+% ---------------------------------------------------------------------
+%  Line spacing.
+% ---------------------------------------------------------------------
+\newdimen\pA \newdimen\pD     % line box above / below the baseline
+\newcount\docfix
+\newcount\DTn \newdimen\DTtw
+\directlua{
+  docmodel = {
+    calibri  = {0.970703125, 0.25,        1.220703125},
+    consolas = {0.913574219, 0.257324219, 1.170898438},
+  }
+  function docmetrics(fam, size, mult)
+    local m = docmodel[fam]
+    local sp = size * 65781.76
+    tex.setdimen('pA', math.floor(m[1] * sp + 0.5))
+    tex.setdimen('pD', math.floor((m[2] + (mult - 1) * m[3]) * sp + 0.5))
+  end
+  local HLIST = node.id('hlist')
+  luatexbase.add_to_callback('post_linebreak_filter', function(head)
+    if tex.count['docfix'] > 0 then
+      local A, D = tex.dimen['pA'], tex.dimen['pD']
+      for n in node.traverse_id(HLIST, head) do
+        if n.subtype == 1 then n.height = A; n.depth = D end
+      end
+    end
+    return true
+  end, 'docmodel')
+  local function bp(x) return string.format('\csstring\%.4fbp', x) end
+  function dtsetup(list)
+    local x, i = 0, 0
+    local edges = {}
+    for w in string.gmatch(list, '[^,]+') do
+      i = i + 1
+      token.set_macro('DTw' .. i, bp(tonumber(w)), 'global')
+      token.set_macro('DTx' .. i, bp(x), 'global')
+      edges[i] = x
+      x = x + tonumber(w)
+    end
+    edges[1] = 0.5            % outer borders sit just inside the table
+    edges[i + 1] = x - 0.5
+    for j = 1, i + 1 do token.set_macro('DTv' .. j, bp(edges[j]), 'global') end
+    tex.setcount('global', 'DTn', i)
+    tex.setdimen('global', 'DTtw', math.floor(x * 65781.76 + 0.5))
+  end
+}
+% \setmetrics{font}{size in bp}{line-spacing factor}: font = calibri | consolas
+\newcommand\setmetrics[3]{\directlua{docmetrics('#1',#2,#3)}}
+\newcommand\Fs[2]{\fontsize{#1bp}{0bp}\selectfont\setmetrics{calibri}{#1}{#2}}
+
+% ---------------------------------------------------------------------
+%  Paragraph engine.
+% ---------------------------------------------------------------------
+\newdimen\lastAfter
+\newdimen\docscratch
+\newif\ifDTjustended   % true straight after a table (for \Note)
+\newcommand\docgap[1]{%
+  \docscratch=#1\relax
+  \ifdim\lastAfter>\docscratch \docscratch=\lastAfter\fi
+  \global\DTjustendedfalse
+  \vskip\docscratch\relax}
+\def\pcolor{txt}
+% \DocPar{setup}{space before}{space after}{text}
+\newcommand\DocPar[4]{%
+  \par\docgap{#2}\global\lastAfter=#3\relax
+  \begingroup#1\noindent\color{\pcolor}\ignorespaces#4\par\endgroup}
+
+% Body paragraphs (Calibri 11, 1.15 line spacing)
+\newcommand\Body[1]{\DocPar{\Fs{11}{1.15}}{0bp}{6bp}{#1}}
+\newcommand\BodyZ[1]{\DocPar{\Fs{11}{1.15}}{0bp}{0bp}{#1}}
+\newcommand\Single[2]{\DocPar{\Fs{11}{1}}{0bp}{#1}{#2}}     % single spacing, #1 = after
+\newcommand\Note[1]{\par\ifDTjustended\global\lastAfter=0bp\fi
+  \DocPar{\Fs{10}{1.15}\itshape\def\pcolor{grey}}{0bp}{6bp}{#1}}
+
+% Headings (raw forms; the numbered forms are defined further down)
+\newcommand\HoneRule{\nointerlineskip\kern3.5bp
+  \hbox{\color{docblue}\vrule width\hsize height1bp depth0bp}\prevdepth=0bp}
+\newcommand\Htwo[2]{\DocPar{\Fs{12.5}{1}\bfseries\def\pcolor{docblue}}{10bp}{5bp}%
+  {\phantomsection\label{#1}\pdfbookmark[1]{#2}{bm:#1}#2}}
+\newcommand\Hthree[1]{\DocPar{\Fs{11}{1}\bfseries\def\pcolor{hthree}}{7bp}{4bp}{#1}\nobreak}
+\newcommand\SubtitleRule{\nointerlineskip\kern8bp
+  \hbox{\color{docblue}\vrule width\hsize height1bp depth0bp}\prevdepth=0bp}
+
+% Lists (marker at 12.75 bp, numbers and check boxes at 12 bp, text at 27 bp)
+\newcommand\Bul[1]{\DocPar{\Fs{11}{1.15}\leftskip=27bp}{0bp}{3bp}%
+  {\hskip-14.25bp\hbox to14.25bp{\textbullet\hss}#1}}
+\newcommand\SubBul[1]{\DocPar{\Fs{11}{1.15}\leftskip=51bp}{0bp}{3bp}%
+  {\hskip-14.25bp\hbox to14.25bp{–\hss}#1}}
+\newcommand\Num[2]{\DocPar{\Fs{11}{1.15}\leftskip=27bp}{0bp}{3bp}%
+  {\hskip-15bp\hbox to15bp{#1.\hss}#2}}
+\newcommand\Chk[1]{\DocPar{\Fs{11}{1.15}\leftskip=27bp}{0bp}{3bp}%
+  {\hskip-15bp\hbox to15bp{☐\hss}#1}}
+
+% Inline styles
+\newcommand\docul[1]{\setbox0\hbox{#1}\rlap{\rule[-1.86bp]{\wd0}{1bp}}\box0}
+\newcommand\doclink[2]{\href{#1}{{\color{link}\docul{#2}}}}
+\newcommand\mono[1]{{\monofont\fontsize{10bp}{0bp}\selectfont\let\phstyle\relax#1}}
+\newcommand\Opt{\textbf{[OPTIONAL]}}
+
+% Pre-formatted diagram lines (Consolas 9 bp, 1.15 line spacing).
+\newif\ifMBfirst
+\begingroup
+\catcode`\^^M=\active%
+\catcode`\ =\active%
+\gdef\MBsetup{\catcode`\ =\active\def {\leavevmode\space}\catcode`\^^M=\active\def^^M{\MBeol}}%
+\endgroup%
+\def\MBeol{\ifMBfirst\global\MBfirstfalse\else\ifhmode\par\else\leavevmode\par\fi\fi}
+\newenvironment{MonoBlock}{\par\docgap{0bp}\global\lastAfter=0bp
+  \begingroup\monofont\fontsize{9bp}{0bp}\selectfont\setmetrics{consolas}{9}{1.15}%
+  \let\phstyle\relax\color{txt}\parindent=0bp
+  \catcode`\_=12 \catcode`\&=12 \catcode`\#=12 \catcode`\%=12
+  \catcode`\$=12 \catcode`\^=12 \catcode`\~=12
+  \global\MBfirsttrue\MBsetup}{\par\endgroup\global\lastAfter=6bp}
+
+% ---------------------------------------------------------------------
+%  Tables.
+% ---------------------------------------------------------------------
+\newcommand\SettlePage{\ifdim\pagetotal>\pagegoal \penalty0 \fi}
+\newcount\DTi \newcount\DTj
+\newdimen\DTH \newdimen\DTT \newdimen\DTzone
+\newbox\DTrowbox
+\def\DTnone{none}
+\newcommand\DTvlines[2]{\DTj=0
+  \loop\ifnum\DTj<\numexpr\DTn+1\relax \advance\DTj by 1
+    \rlap{\kern\dimexpr\csname DTv\the\DTj\endcsname-0.5bp\relax
+      \color{tblrule}\vrule width1bp height#1 depth#2}%
+  \repeat}
+% \DTc{cell content}
+\newcommand\DTc[1]{%
+  \global\advance\DTi by 1
+  \expandafter\ifx\csname DTb\the\DTi\endcsname\relax
+    \expandafter\newbox\csname DTb\the\DTi\endcsname\fi
+  \edef\DTcur{\csname DTb\the\DTi\endcsname}%
+  \global\setbox\DTcur=\vbox{%
+    \hsize=\dimexpr\csname DTw\the\DTi\endcsname-12bp\relax
+    \leftskip=0bp \global\lastAfter=0bp
+    #1\par\vskip\lastAfter}%
+  \docscratch=\dimexpr\ht\DTcur+\dp\DTcur\relax
+  \ifdim\docscratch>\DTH \global\DTH=\docscratch\fi}
+\newcount\DTr \newcount\DTrows
+\newdimen\DTneed
+\newif\ifDThdrpending
+\newcommand\DTrow[3][0bp]{%
+  \par
+  \global\DTi=0 \global\DTH=#1\relax
+  #3%
+  \ifnum\DTrows=0 \DTzone=1bp \else \DTzone=1.25bp \fi
+  \DTT=\dimexpr\DTzone+7bp+\DTH\relax
+  \setbox\DTrowbox=\hbox to\DTtw{%
+    \def\DTfill{#2}%
+    \ifx\DTfill\DTnone\else
+      \rlap{\color{#2}\vrule width\DTtw height\dimexpr\DTT-\DTzone/2\relax depth0.625bp}%
+    \fi
+    \rlap{\color{tblrule}\vrule width\DTtw height\dimexpr\DTT-\DTzone/2+0.5bp\relax
+      depth\dimexpr-\DTT+\DTzone/2+0.5bp\relax}%
+    \DTvlines{\DTT}{0.625bp}%
+    \DTi=0
+    \loop\ifnum\DTi<\DTn \advance\DTi by 1
+      \edef\DTcur{\csname DTb\the\DTi\endcsname}%
+      \rlap{\kern\dimexpr\csname DTx\the\DTi\endcsname+6bp\relax
+        \raise\dimexpr\DTT-\DTzone-3.5bp-\ht\DTcur\relax\box\DTcur}%
+    \repeat
+    \hss}%
+  \dp\DTrowbox=0bp
+  \global\advance\DTrows by 1
+  \expandafter\ifx\csname DTrow\the\DTrows\endcsname\relax
+    \expandafter\newbox\csname DTrow\the\DTrows\endcsname\fi
+  \edef\DTcur{\csname DTrow\the\DTrows\endcsname}%
+  \global\setbox\DTcur=\box\DTrowbox}
+\newcommand\DTavail{\SettlePage
+  \ifdim\pagegoal=\maxdimen \DBavail=\vsize \else \DBavail=\dimexpr\pagegoal-\pagetotal\relax\fi}
+\newcommand\DTemit{%
+  \global\DThdrpendingtrue
+  \ifnum\DTrows=1 % header row only
+    \DTneed=\dimexpr\ht\csname DTrow1\endcsname+1bp\relax
+    \DTavail
+    \ifdim\DTneed>\DBavail \newpage \fi
+    \nointerlineskip\copy\csname DTrow1\endcsname
+  \fi
+  \DTr=1
+  \loop\ifnum\DTr<\DTrows \advance\DTr by 1
+    \edef\DTcur{\csname DTrow\the\DTr\endcsname}%
+    \DTneed=\ht\DTcur
+    \ifnum\DTr=\DTrows \advance\DTneed by 1bp \fi
+    \ifDThdrpending \advance\DTneed by \ht\csname DTrow1\endcsname \fi
+    \DTavail
+    \ifdim\DTneed>\DBavail \newpage \global\DThdrpendingtrue \fi
+    \ifDThdrpending \nointerlineskip\copy\csname DTrow1\endcsname \global\DThdrpendingfalse \fi
+    \nointerlineskip\box\DTcur
+  \repeat}
+\newcount\DTbody
+\newenvironment{DocTable}[1]{%
+  \par\docgap{0bp}\par\directlua{dtsetup('#1')}\global\DTrows=0 \global\DTbody=0 }{%
+  \par
+  \ifnum\DTrows>0
+    \DTemit
+    \setbox\DTrowbox=\hbox to\DTtw{%
+      \rlap{\color{tblrule}\vrule width\DTtw height1bp depth0bp}\DTvlines{1bp}{0bp}\hss}%
+    \nointerlineskip\box\DTrowbox
+  \fi
+  \global\lastAfter=6bp \global\DTjustendedtrue}
+\newcommand\cp[3]{\DocPar{\Fs{#1}{#2}}{0bp}{0bp}{#3}}
+\newcommand\ch[2]{\DocPar{\Fs{10}{#1}\bfseries\def\pcolor{white}%
+  \def\phshow##1{\global\phusedtrue[\textit{##1}]}}{0bp}{0bp}{#2}}
+\newcommand\tc[1]{\cp{10}{1}{#1}}
+\newcommand\DTauto{\global\advance\DTbody by 1
+  \edef\DTautorow{\noexpand\DTrow{\ifodd\DTbody white\else rowalt\fi}}\DTautorow}
+\newcommand\HeadII[2]{\DTrow{docblue}{\DTc{\ch{1}{#1}}\DTc{\ch{1}{#2}}}}
+\newcommand\HeadIII[3]{\DTrow{docblue}{\DTc{\ch{1}{#1}}\DTc{\ch{1}{#2}}\DTc{\ch{1}{#3}}}}
+\newcommand\HeadIV[4]{\DTrow{docblue}{\DTc{\ch{1}{#1}}\DTc{\ch{1}{#2}}\DTc{\ch{1}{#3}}\DTc{\ch{1}{#4}}}}
+\newcommand\RowII[2]{\DTauto{\DTc{\tc{#1}}\DTc{\tc{#2}}}}
+\newcommand\RowIII[3]{\DTauto{\DTc{\tc{#1}}\DTc{\tc{#2}}\DTc{\tc{#3}}}}
+\newcommand\RowIV[4]{\DTauto{\DTc{\tc{#1}}\DTc{\tc{#2}}\DTc{\tc{#3}}\DTc{\tc{#4}}}}
+
+% ---------------------------------------------------------------------
+%  Call-out boxes
+% ---------------------------------------------------------------------
+\newbox\DBcontent \newbox\DBtmp \newbox\DBrest
+\newdimen\DBavail \newdimen\DBh \newdimen\DBfuzz \newcount\DBbad
+\def\DBtop{6.75bp}\def\DBbot{6.75bp}
+\newcommand\DBput[2]{% #1 = content box, #2 = bottom padding
+  \setbox\DBtmp=\vbox{\unvbox#1\kern0bp}%
+  \DBh=\dimexpr\DBtop+\ht\DBtmp+#2\relax
+  \setbox\DBtmp=\hbox to\DBw{%
+    \rlap{\color{\DBbg}\vrule width\DBw height\DBh depth0bp}%
+    \rlap{\kern\dimexpr\DBbarc-1.5bp\relax\color{\DBbar}\vrule width3bp height\DBh depth0bp}%
+    \rlap{\kern9.75bp\raise#2\box\DBtmp}\hss}%
+  \nointerlineskip\box\DBtmp}
+\newif\ifDBmore
+\newcommand\DBflow{%
+  \DBmoretrue
+  \loop
+    \SettlePage
+    \ifdim\pagegoal=\maxdimen \DBavail=\vsize \else \DBavail=\dimexpr\pagegoal-\pagetotal\relax\fi
+    \ifdim\dimexpr\DBtop+\ht\DBcontent+\dp\DBcontent+\DBbot\relax>\DBavail
+      \DBh=\dimexpr\DBavail-\DBtop-\DBbot\relax
+      \setbox\DBrest=\copy\DBcontent
+      \DBfuzz=\vfuzz \vfuzz=\maxdimen \DBbad=\vbadness \vbadness=10000 % trial split
+      \setbox\DBtmp=\vsplit\DBrest to\DBh
+      \vfuzz=\DBfuzz \vbadness=\DBbad
+      \setbox\DBtmp=\vbox{\unvbox\DBtmp}%
+      \ifdim\ht\DBtmp>0bp \ifdim\dimexpr\ht\DBtmp+\dp\DBtmp\relax>\DBh\else
+        \DBput\DBtmp\DBbot
+        \ifdim\ht\DBrest=0bp \DBmorefalse \else \setbox\DBcontent=\box\DBrest \fi
+      \fi\fi
+      \ifDBmore\newpage\fi
+    \else
+      \DBput\DBcontent\DBbot \DBmorefalse
+    \fi
+  \ifDBmore\repeat}
+\newenvironment{DocBox}[5][1.5bp]{%
+  \par\docgap{6bp}\par
+  \def\DBbg{#2}\def\DBbar{#3}\def\DBw{#4}\def\DBbarc{#1}%
+  \setbox\DBcontent=\vbox\bgroup\hsize=#5\relax\leftskip=0bp\global\lastAfter=0bp}{%
+  \par\vskip\lastAfter\egroup
+  \ifinner\DBput\DBcontent\DBbot\else\DBflow\fi
+  \global\lastAfter=6bp}
+\splittopskip=0bp \splitmaxdepth=0bp
+\newcommand\CT[1]{\DocPar{\Fs{10.5}{1}\bfseries\def\pcolor{navy}}{0bp}{3bp}{#1}\nobreak}
+
+% ---------------------------------------------------------------------
+%  Placeholders, numbered headings, contents and cross-references
+% ---------------------------------------------------------------------
+\makeatletter
+\newif\ifphused
+\let\phstyle\textit
+\newcommand\phshow[1]{\global\phusedtrue{\color{phcolor}[\phstyle{#1}]}}
+\DeclareRobustCommand\ph[1]{\phshow{#1}}
+\pdfstringdefDisableCommands{\def\ph#1{[#1]}}
+\AddToHook{enddocument/afterlastpage}{\ifphused
+  \PackageWarningNoLine{MOVE template}{Placeholders (\string\ph) are still in this document}\fi}
+
+\newcount\secA \newcount\secB \newcount\secC
+\newdimen\NSavail
+\newcommand\NeedSpace[1]{\par\SettlePage
+  \ifdim\pagegoal=\maxdimen\else
+    \NSavail=\dimexpr\pagegoal-\pagetotal\relax
+    \ifdim\NSavail<#1\relax \newpage\fi
+  \fi}
+\newcommand\DocAnchor[5]{%
+  \phantomsection
+  \def\@currentlabel{#4}\label{#3}%
+  \pdfbookmark[#1]{#5}{bm:#3}%
+  \ifx#2\relax\else
+    \begingroup
+    \edef\x{\endgroup\noexpand\addtocontents{toc}%
+      {\noexpand\protect\noexpand#2{#3}{\unexpanded{#5}}}}\x
+  \fi}
+\newcommand\Section[2]{%
+  \global\advance\secA\@ne \global\secB\z@ \global\secC\z@
+  \NeedSpace{110bp}%
+  \DocPar{\Fs{15}{1}\bfseries\def\pcolor{navy}}{15bp}{7bp}%
+    {\DocAnchor{0}{\TocA}{#1}{\the\secA}{\the\secA.\space#2}\the\secA.\space#2}\HoneRule\nobreak}
+\newcommand\PlainSection[2]{%
+  \NeedSpace{110bp}%
+  \DocPar{\Fs{15}{1}\bfseries\def\pcolor{navy}}{15bp}{7bp}%
+    {\DocAnchor{0}{\TocA}{#1}{}{#2}#2}\HoneRule\nobreak}
+\newcommand\Subsection[2]{%
+  \global\advance\secB\@ne \global\secC\z@
+  \NeedSpace{100bp}%
+  \DocPar{\Fs{12.5}{1}\bfseries\def\pcolor{docblue}}{10bp}{5bp}%
+    {\DocAnchor{1}{\TocB}{#1}{\the\secA.\the\secB}{\the\secA.\the\secB\space#2}%
+     \the\secA.\the\secB\space#2}\nobreak}
+\newcommand\Subsubsection[2]{%
+  \global\advance\secC\@ne
+  \NeedSpace{100bp}%
+  \DocPar{\Fs{12.5}{1}\bfseries\def\pcolor{docblue}}{10bp}{5bp}%
+    {\DocAnchor{2}{\relax}{#1}{\the\secA.\the\secB.\the\secC}%
+       {\the\secA.\the\secB.\the\secC\space#2}%
+     \the\secA.\the\secB.\the\secC\space#2}\nobreak}
+\newcommand\secref[1]{\hyperref[#1]{§\ref*{#1}}}
+
+\newcommand\TocA[2]{\DocPar{\Fs{11}{1.5}\bfseries\def\pcolor{docblue}%
+  \rightskip=0bp\parfillskip=0bp}{3bp}{0bp}{\hyperref[#1]{#2\hfill\pageref*{#1}}}}
+\newcommand\TocB[2]{\DocPar{\Fs{11}{1.5}\leftskip=18bp%
+  \rightskip=0bp\parfillskip=0bp}{3bp}{0bp}{\hyperref[#1]{#2\hfill\pageref*{#1}}}}
+\newcommand\TableOfContents{\@starttoc{toc}}
+
+\newcount\figno
+\newcommand\DocFigFile[1]{%
+  \IfFileExists{#1}{\def\DFfile{#1}}{%
+  \IfFileExists{#1.pdf}{\def\DFfile{#1.pdf}}{%
+  \IfFileExists{#1.png}{\def\DFfile{#1.png}}{%
+  \IfFileExists{#1.jpg}{\def\DFfile{#1.jpg}}{%
+  \let\DFfile\relax}}}}}
+\newcommand\DocFigureBody[4][]{%
+  \global\advance\figno\@ne
+  \par\docgap{6bp}\global\lastAfter=0bp
+  \hbox to\hsize{\hss#3\hss}%
+  \nobreak\vskip4bp
+  \DocPar{\Fs{10}{1.15}\itshape\def\pcolor{grey}%
+    \leftskip=0bp plus 1fil\rightskip=0bp plus 1fil\parfillskip=0bp}{0bp}{6bp}%
+    {\phantomsection\def\@currentlabel{\the\figno}\label{#2}Figure \the\figno: #4}}
+\newcommand\DocFigure[4][0.7]{%
+  \DocFigFile{#3}%
+  \ifx\DFfile\relax
+    \DocFigureBody{#2}{{\fboxsep=0bp \fboxrule=0.75bp
+       \fcolorbox{phcolor}{white}{\vbox to 0.45\dimexpr#1\hsize\relax{\hsize=#1\hsize
+         \vfil\Fs{10}{1}\centerline{\ph{Add figure: \detokenize{#3}}}\vfil}}}}{#4}%
+  \else
+    \DocFigureBody{#2}{\includegraphics[width=#1\hsize]{\DFfile}}{#4}%
+  \fi}
+\newcommand\figref[1]{\hyperref[#1]{Figure~\ref*{#1}}}
+
+\newcommand\TabField[1]{\setbox0\hbox{#1}%
+  \ifdim\wd0<170bp \hbox to180bp{\box0\hss}\else\box0\hskip2em\fi}
+\newcommand\IfFieldEmpty[3]{\edef\@tempa{\detokenize\expandafter{#1}}%
+  \ifx\@tempa\@empty #2\else #3\fi}
+
+\makeatother
+
+% ---------------------------------------------------------------------
+%  Page set-up, running header and footer
+% ---------------------------------------------------------------------
+\pagestyle{empty}
+\setlength\parindent{0bp}
+\setlength\parskip{0bp}
+\setlength\topskip{0bp}
+\setlength\maxdepth{0bp}
+\raggedbottom
+\frenchspacing
+\clubpenalty=10000 \widowpenalty=10000
+\hyphenpenalty=10000 \exhyphenpenalty=10000
+\pretolerance=10000 \tolerance=10000
+\AddToHook{shipout/background}{\normalfont
+  \put(72bp,-43.17bp){\makebox[468bp][r]{\fontsize{8bp}{0bp}\selectfont\color{grey}%
+    \ProjShort\ — \DocType}}%
+  \put(72bp,-50bp){\color{hfrule}\rule{468bp}{1bp}}%
+  \put(72bp,-743bp){\color{hfrule}\rule{468bp}{1bp}}%
+  \put(306bp,-754.6bp){\makebox[0bp][c]{\fontsize{8bp}{0bp}\selectfont\color{grey}%
+    \OrgName, Rev \ProjRev\ \ \ ·\ \ \ Page \thepage\ of \pageref*{LastPage}}}}
+
+\hypersetup{pdftitle={\ProjShort\space - \DocType, Rev \ProjRev},
+            pdfauthor={\ProjAuthor}}
+
+\AtBeginDocument{%
+  \renewcommand\normalsize{\fontsize{11bp}{0bp}\selectfont}\normalsize
+  \baselineskip=0bp \lineskip=0bp \lineskiplimit=0bp
+  \rightskip=0bp plus 1fil \parfillskip=0bp plus 1fil
+  \docfix=1 \color{txt}}
+
+% =====================================================================
+\begin{document}
+% =====================================================================
+
+% ----------------------------- Title block ---------------------------
+\vspace*{60bp}
+\DocPar{\Fs{28}{1}\bfseries\def\pcolor{navy}}{0bp}{0bp}{\DocType}
+\DocPar{\Fs{20}{1}\bfseries\def\pcolor{black}}{0bp}{0bp}{\ProjTitle}
+\DocPar{\Fs{12}{1}\itshape\def\pcolor{grey}}{6bp}{0bp}{\ProjTagline}
+\SubtitleRule
+\DocPar{\Fs{11}{1}}{12bp}{0bp}%
+  {\TabField{\textbf{Audience: }\ProjAudience}\textbf{Project: }\ProjName}
+\DocPar{\Fs{11}{1}}{3bp}{0bp}%
+  {\TabField{\textbf{Revision: }\ProjRev}%
+   \IfFieldEmpty{\ProjReference}{}{\textbf{Reference: }\ProjReference}}
+\DocPar{\Fs{11}{1}}{3bp}{0bp}{\textbf{Date: }\ProjDate}
+
+\global\lastAfter=36bp   % space above the revision history
+\Htwo{sec:revhist}{Revision history}
+\begin{DocTable}{35.25,69.75,69.75,293.25}
+\HeadIV{Rev}{Date}{Author}{Summary}
+\RowIV{1.3}{05.10.2026}{Elias Asmus}{ADS1299-4 EMG Front-End PCB Project Definition. Merged into this document as \secref{sec:afe} and \secref{sec:iface}.}
+\RowIV{2.0}{15.09.2026}{Antonio Salas}{Cacao System Architecture — firmware and hardware state. Superseded.}
+\RowIV{3.0}{02.11.2026}{Antonio Salas}{Consolidation. Both documents above merged into one and re-ordered along the signal pipeline. Authority order replaced by a project summary. Purchase orders replaced by a material list with order status. Current AFE layout, actuation and mechanical state recorded, including the two open finger defects.}
+\end{DocTable}
+\newpage
+
+% ------------------------------- Contents ----------------------------
+\DocPar{\Fs{14}{1}\bfseries\def\pcolor{navy}}{0bp}{24bp}%
+  {Contents\pdfbookmark[0]{Contents}{bm:contents}}
+\TableOfContents
+\newpage
+
+% ============================== Section 1 ============================
+\Section{sec:summary}{Summary}
+\Body{Cacao is MOVE Prosthetics' myoelectric hand prototype. Surface EMG from two forearm muscles is amplified and digitised by an ADS1299-4 front-end, interpreted by an STM32H753ZI into an open/close intent, and executed by a DRV8838-driven gearmotor pulling a tendon through a 3D-printed hand.}
+\Body{The prototype is a development and teaching platform, not a certified medical device. Success means reliable signal-to-grip operation, reproducible by students.}
+
+\Subsection{sec:summary-state}{Where each subsystem stands}
+\begin{DocTable}{150,318}
+\HeadII{Subsystem}{Status}
+\RowII{Electrodes and leads}{Purchased, in use}
+\RowII{AFE board (ADS1299-4)}{Schematic complete in Altium; \textbf{layout in progress}; board to be ordered fully assembled}
+\RowII{AFE power}{Resolved: 6-cell NiMH AA pack, both rails generated on-board}
+\RowII{Firmware stages 1–3}{Complete, 19/19 tests passing}
+\RowII{Firmware stage 4A}{Started — HAL and ADS1299 driver skeleton, placeholders only}
+\RowII{Firmware stages 4B, 5}{Not started}
+\RowII{Motors and driver}{Motors spin under firmware control and follow the intent state}
+\RowII{Magnetic encoder}{\textbf{In progress}}
+\RowII{Hand (palm, fingers)}{Several iterations printed; \textbf{two defects open} — see \secref{sec:mech-defects}}
+\end{DocTable}
+
+\Subsection{sec:summary-next}{What is next}
+\Num{1}{\textbf{Finish the AFE layout} and place the assembled-board order.}
+\Num{2}{\textbf{Close the two mechanical defects} (\secref{sec:mech-defects}).}
+\Num{3}{\textbf{Finish the magnetic encoder}.}
+\Num{4}{\textbf{Stage 4B — real SPI acquisition}, which is the gate to the first end-to-end muscle-driven grasp.}
+
+% ============================== Section 2 ============================
+\Section{sec:arch}{System architecture}
+\Body{Every stage below feeds the next. The sections of this document follow this order.}
+
+\begin{MonoBlock}
+skin
+  │  2 differential pairs + 1 driven bias  (5 electrodes)
+  ▼
+ADS1299-4PAGR                 ← Cacao AFE carrier board (layout in progress)
+  │  SPI + DRDY, over IDC ribbon ≤ 20 cm, signals + GND only
+  ▼
+STM32H753ZI  (NUCLEO-H753ZI)
+  │
+  ├─ acquisition   : DRDY EXTI → read frame → ring buffer → flag → return
+  ├─ processing    : high-pass → rectify → moving average   (envelope.c)
+  ├─ intent        : hysteresis + dwell state machine       (intent.c)
+  ├─ motor control : stage 5, not yet written
+  │
+  ├──► USB → laptop (Python live plot)
+  └──► DRV8838 → 100:1 gearmotor → GT2 spool → tendon → fingers
+\end{MonoBlock}
+
+\Body{\textbf{Two power domains, deliberately separate.} The AFE runs from its own 6-cell NiMH pack and generates both its rails locally. The motor runs from its own supply. No supply rail crosses the ribbon in either direction, and Nucleo 3V3 never reaches the AFE header.}
+
+\begin{DocBox}{callbg}{docblue}{468bp}{450bp}
+\CT{The architectural boundary that must not erode}
+\Single{3bp}{\mono{src/} algorithm code stays platform-independent and compiles unchanged on PC and STM32. All STM32 and ADS1299 code lives under \mono{platform/stm32/}. Nothing hardware-specific enters \mono{intent.c}.}
+\Single{0bp}{Position and limit feedback belong to motor control in Stage 5, not to intent detection. Intent answers \textit{what does the user want}; motor control answers \textit{can the hardware do it}.}
+\end{DocBox}
+
+% ============================== Section 3 ============================
+\Section{sec:electrodes}{Stage 1 — Electrodes and skin interface}
+\Body{Five electrodes in use: two differential pairs plus one shared driven bias.}
+
+\begin{DocTable}{110,358}
+\HeadII{Item}{Specification}
+\RowII{\textbf{Electrodes}}{Kendall (Arbo) H124SG, Ø 24 mm, pre-gelled Ag/AgCl, snap stud}
+\RowII{\textbf{Count}}{5 — 2 channels × 2 + 1 bias}
+\RowII{\textbf{Channel 1}}{Flexor muscle, palm side of the forearm — signals \textit{close}}
+\RowII{\textbf{Channel 2}}{Extensor muscle, back of the forearm — signals \textit{open}}
+\RowII{\textbf{Bias}}{Single driven electrode, on a bony site (wrist or elbow)}
+\RowII{\textbf{Leads}}{Snap-to-DIN 1.5 mm touchproof, DIN 42802}
+\RowII{\textbf{Skin prep}}{Nuprep abrasive gel, then IPA 99.9 \%, shave if needed}
+\end{DocTable}
+
+\Subsection{sec:electrodes-placement}{Placement and preparation}
+\Body{Each pair sits over the muscle belly, aligned along the fibre direction, roughly 20 mm centre to centre. Find the belly by palpation while the subject contracts, and mark it so placement repeats between sessions.}
+\Body{\textbf{Why skin preparation matters more than it looks.} Contact impedance dominates signal quality at this amplitude. Abrade with Nuprep until the skin is slightly pink, clean with IPA, let it dry fully, then press the electrode down at the edges. Three minutes of preparation outperforms any amount of downstream filtering.}
+
+\begin{DocBox}{warnbg}{warnbar}{468bp}{450bp}
+\CT{The bias electrode is a driven output, never a ground}
+\Single{0bp}{It is actively driven by the ADS1299 bias amplifier to cancel common-mode 50 Hz interference. Tying it to ground defeats the entire driven-bias circuit.}
+\end{DocBox}
+
+\Subsection{sec:electrodes-limits}{Known limits of this electrode choice}
+\Body{H124SG pads are ECG electrodes: larger than ideal for EMG, which increases crosstalk between adjacent forearm muscles, and their gel dries over a session, shifting the baseline. Both are accepted for V1. The electrode is a swappable module, so a smaller EMG-specific electrode is a drop-in upgrade later.}
+
+% ============================== Section 4 ============================
+\Section{sec:afe}{Stage 2 — AFE board (ADS1299-4)}
+\Body{\textbf{Status: schematic complete in Altium, layout in progress.} The board will be ordered fully assembled, with every component populated by the fabricator. Authoritative reference for anything about the chip is the TI datasheet SBAS499; where it gives only a topology, the value below applies.}
+
+\Subsection{sec:afe-device}{Device configuration}
+\begin{DocTable}{130,338}
+\HeadII{Item}{Requirement}
+\RowII{\textbf{Part}}{ADS1299-4PAGR, TQFP-64, 0.5 mm pitch. Verify pin 1 against the datasheet}
+\RowII{\textbf{Channels}}{2 populated: IN1P/IN1N (flexor), IN2P/IN2N (extensor)}
+\RowII{\textbf{Unused inputs}}{IN3x, IN4x (pins 9–12) and pins 1–8 connect \textbf{directly to AVDD}, per SBAS499 §10.1.1. No input network, no ESD, no expansion footprints on these pins. Firmware powers channels 3 and 4 down (CH3SET/CH4SET: PDn = 1, MUXn = 001)}
+\RowII{\textbf{Exposed pad}}{None. The PAG package has no thermal pad}
+\RowII{\textbf{RESV1 (31), DAISY\_IN (41)}}{Directly to DGND}
+\RowII{\textbf{GPIO1–4 (42, 44, 45, 46)}}{Each to DGND through ≥ 10 kΩ}
+\RowII{\textbf{BIASREF (60)}}{Directly to AVSS}
+\RowII{\textbf{SRB1 (17), SRB2 (18)}}{Floating}
+\RowII{\textbf{NC (27, 29), RESERVED (64)}}{Open, no net, No-ERC marker in the schematic}
+\end{DocTable}
+
+\Subsection{sec:afe-power}{Power — Scheme A, unipolar}
+\Body{Both rails are generated on-board from a single 6-cell NiMH AA pack. \textbf{NiMH is confirmed as the battery chemistry.}}
+
+\begin{DocTable}{90,85,293}
+\HeadIII{Rail}{Value}{Notes}
+\RowIII{AVDD / AVSS}{+5.0 V / 0 V}{Analog. Common-mode reference at mid-supply, set internally (BIASREF\_INT). Must stay within 4.75–5.25 V}
+\RowIII{DVDD}{+3.3 V}{Digital and SPI domain, matching Nucleo logic levels. Separate LDO fed from the pack — not cascaded off AVDD, not supplied by the Nucleo}
+\RowIII{VREF}{4.5 V internal}{See \secref{sec:afe-ref}}
+\end{DocTable}
+
+\Body{\textbf{Pack:} 6× AA low-self-discharge NiMH (Eneloop class), 7.2 V nominal, operating window 6.0 V to 8.7 V. Off-board holder on a lead ≤ 15 cm, keyed connector, never mounted on the PCB. Charged externally in a per-slot smart charger, cells individually, never as a series pack. Board draw is roughly 10 mA, so runtime is not a design driver.}
+
+\Body{\textbf{The board must survive 6× fresh alkaline AA (≈ 9.6 V) fitted by mistake.} This is why both LDOs are rated Vin ≥ 16 V, and why common 5.5 V-max SOT-23 parts are excluded.}
+
+\Hthree{Input chain, in order}
+\begin{MonoBlock}
+Pack → J_PWR → F1 (PTC) → SW1 → Q1 (rev-polarity) → C_BULK ─┬─ U1 → AVDD 5.0 V
+                                                            └─ U2 → DVDD 3.3 V
+\end{MonoBlock}
+
+\begin{DocTable}{70,398}
+\HeadII{Ref}{Requirement}
+\RowII{\textbf{J\_PWR}}{Keyed 2-pin (JST-XH or PH class), at the digital/SPI edge, away from the analog section}
+\RowII{\textbf{F1}}{Resettable PTC, ≈ 100 mA hold}
+\RowII{\textbf{SW1}}{Power switch, ≥ 500 mA}
+\RowII{\textbf{Q1}}{P-channel MOSFET reverse-polarity protection. Drain to battery +, source to load, gate to GND via \textbf{120 kΩ}. Vds ≥ 20 V and Vgs(max) ≥ 20 V required}
+\RowII{\textbf{C\_BULK}}{47–100 µF at board entry, after Q1}
+\RowII{\textbf{U1 (AVDD)}}{TPS7A4901DGNT, adjustable, set to 5.0 V. 15.4 µVRMS (10 Hz–100 kHz)}
+\RowII{\textbf{U2 (DVDD)}}{TPS7A4901DGNT, set to 3.3 V — same part as U1 so both rails ramp together}
+\end{DocTable}
+\Note{Both regulators are star-connected at C\_BULK and fed from the raw pack.}
+
+\begin{DocBox}{warnbg}{warnbar}{468bp}{450bp}
+\CT{Hard rules for power}
+\Bul{The board runs from its own NiMH pack at all times. There is no bench-supply mode and no USB-powered mode.}
+\Bul{\textbf{No USB connector on the board.} A USB socket is a standing invitation to connect the electrode side to a mains-derived supply; the physical affordances must make the unsafe configuration impossible, not merely discouraged.}
+\Bul{No USB power bank: 5 V leaves zero headroom for the 5 V AVDD LDO, some banks shut off below ≈ 50–100 mA while this board draws ≈ 10 mA, and their boost noise would corrupt the noise-floor measurement.}
+\Bul{Never a mains-tied bench supply on the electrode side. A bench PSU's case is PE-bonded and has deliberate mains-to-output Y-capacitance.}
+\Bul{Both rails generated locally. No supply rail crosses the ribbon in either direction.}
+\end{DocBox}
+
+\Subsection{sec:afe-decoupling}{Decoupling}
+\Body{The single most important layout task, and the main reason this is a PCB and not a breadboard. Follows SBAS499 Figure 77.}
+
+\begin{DocTable}{120,90,258}
+\HeadIII{Pin / net}{Capacitor}{Placement}
+\RowIII{AVDD → AVSS}{1 µF}{One per AVDD pin, hard against the pin, minimum loop area}
+\RowIII{AVDD1 → AVSS1}{1 µF}{Charge-pump pair at pins 54/53, vias straight to the planes}
+\RowIII{DVDD → DGND}{1 µF}{At the DVDD pin}
+\RowIII{Bulk}{10 µF per domain}{Near each rail's entry}
+\RowIII{VCAP1 (28) → AVSS}{100 µF}{\textbf{Tantalum or C0G, not X7R/X5R} — class-2 ceramics are piezoelectric and noise here degrades the internal reference. Polarised: mark + on silkscreen. ≥ 10 V. Test point}
+\RowIII{VCAP2 (30) → AVSS}{1 µF}{}
+\RowIII{VCAP3 (55) → AVSS}{1 µF ∥ 100 nF}{}
+\RowIII{VCAP4 (26) → AVSS}{1 µF}{}
+\RowIII{VREFP (24) → VREFN (25)}{≥ 10 µF}{}
+\end{DocTable}
+\Note{All ceramics X7R/C0G, low-ESR, on the same layer as the IC, directly at the pins.}
+
+\Subsection{sec:afe-ref}{Reference and clock}
+\Bul{Internal 4.5 V reference; set PD\_REFBUF accordingly in firmware. VREFN tied to AVSS.}
+\Bul{Internal oscillator; no crystal on this board. CLKSEL is a two-state mode pin, so it connects to DVDD \textbf{through ≥ 10 kΩ, never directly} (SBAS499 pin note 1).}
+
+\Subsection{sec:afe-bias}{Bias drive (driven-reference / DRL)}
+\Body{The bias amplifier drives the single bias electrode to actively cancel common-mode mains interference. It is kept even though some commercial pods omit it, because passive electrodes on long leads in a bench environment benefit most from it.}
+
+\begin{DocTable}{80,388}
+\HeadII{Net}{Requirement}
+\RowII{\textbf{BIASOUT}}{Two separate networks. \textbf{(a) Feedback at the chip:} RF ∥ CF from BIASOUT to BIASINV, \textbf{4.7 MΩ ∥ 1.5 nF}, CF C0G — sets the loop's gain and bandwidth. \textbf{(b) Series resistor RP} from BIASOUT to the bias connector, placed near the connector, limiting current into the subject}
+\RowII{\textbf{BIASIN}}{Unused, left floating}
+\RowII{\textbf{BIASINV}}{Carries feedback network (a). Not floated — the float-if-unused rule applies only when the bias amplifier is unused}
+\RowII{\textbf{BIAS\_SENSx}}{No hardware. Channel contribution is selected in firmware (BIAS\_SENSP / BIAS\_SENSN)}
+\RowII{\textbf{Bias electrode}}{One for the whole system. \textbf{Do NOT tie to ground} — it is a driven output}
+\end{DocTable}
+
+\Subsection{sec:afe-input}{Electrode input network}
+\begin{DocTable}{90,378}
+\HeadII{Item}{Requirement}
+\RowII{\textbf{Connectors}}{\textbf{DIN 42802 1.5 mm touchproof male jacks} (shrouded pin), PCB-mount, at the board edge. 5 jacks. They mate with the female sockets on the electrode leads. Obtain the mechanical drawing before drawing the footprint}
+\RowII{\textbf{Pairing}}{Each channel's INxP / INxN jacks \textbf{adjacent}, so a pair's leads stay together and traces enter the chip as a tight differential pair}
+\RowII{\textbf{Input filter}}{\textbf{120 kΩ and 270 pF} on each input; \textbf{2× 270 kΩ} on the bias line}
+\RowII{\textbf{ESD}}{\textbf{Mandatory} on all analog signal inputs: TPD4E1B06DCKR}
+\RowII{\textbf{Routing}}{INxP/INxN as matched-length tight pairs, as short as possible, away from DVDD and all SPI traces. No digital traces crossing under the input network}
+\end{DocTable}
+\Note{Same values on P and N. Mismatch destroys CMRR, which is the entire mechanism by which the differential pair rejects mains interference.}
+
+\Subsection{sec:afe-layout}{Layout and stack-up}
+\Bul{\textbf{4-layer}, 1.6 mm FR-4, ENIG finish for the fine-pitch TQFP. Order: Signal (top) / GND / Power / Signal (bottom).}
+\Bul{\textbf{Single solid ground pour.} AVSS = DGND = GND. Do not create split-ground moats on a board this small.}
+\Bul{\textbf{Analog one side, digital the other}, with the chip as the boundary: analog input pins face the electrode connectors at the board edge, digital pins face the SPI header.}
+\Bul{No digital traces under the analog input network or under VREF.}
+\Bul{Power entry and both regulators grouped at the digital/SPI edge alongside J\_PWR. No part of the battery input chain sits inside the analog region.}
+\Bul{Electrode connectors at one board edge, SPI header at the opposite edge, J\_PWR at the SPI edge.}
+\Bul{At least 2 mounting holes, clear of the analog section.}
+\Bul{Silkscreen: every connector, every SPI header pin, IC pin 1, the power scheme, and at J\_PWR print \textbf{6× NiMH AA ONLY — NO ALKALINE — NO USB} with polarity marked.}
+
+\Subsection{sec:afe-fab}{Fabrication}
+\Body{4-layer, 1.6 mm FR-4, ENIG. Confirm fab capability for 0.5 mm pitch (0.15 mm track/space is comfortable). Order a solder-paste stencil with the board. Boards from JLCPCB or Aisler, shipping to Munich. Reflow yield is high but not perfect and connector changes often force a respin, so a spare board is worth having.}
+
+% ============================== Section 5 ============================
+\Section{sec:iface}{Stage 3 — AFE to Nucleo interface}
+\Body{A single 0.1″ (2.54 mm) header carries the link over an IDC ribbon no longer than 20 cm. All digital I/O is in the DVDD = 3.3 V domain, matching the Nucleo directly.}
+
+\begin{DocTable}{85,110,273}
+\HeadIII{Signal}{Direction (vs ADS1299)}{Purpose}
+\RowIII{SCLK}{in}{SPI clock from the STM32}
+\RowIII{DIN (MOSI)}{in}{SPI data to the ADS1299}
+\RowIII{DOUT (MISO)}{out}{SPI data from the ADS1299}
+\RowIII{CS}{in}{Chip select, active low}
+\RowIII{DRDY}{out}{Data-ready — to an STM32 EXTI pin. \textbf{Sample clocking is driven by this}}
+\RowIII{START}{in}{Start conversions, or by command}
+\RowIII{RESET}{in}{Hardware reset, active low}
+\RowIII{PWDN}{in}{Power-down, active low}
+\RowIII{GND}{—}{Common reference and return path. Multiple pins, interleaved}
+\end{DocTable}
+
+\Body{\textbf{No DVDD pin on the header.} DVDD is generated locally by U2. No supply rail crosses the ribbon in either direction.}
+
+\Body{\textbf{Ribbon grounding.} Return current follows the path of least inductance, which means it wants to flow next to its own signal. A single GND pin at one end creates a large loop for every SPI signal, radiating alongside microvolt-level electrode traces. Alternate signal and ground down the ribbon where pin count allows. \textbf{SCLK is the priority} — fastest edge, repeating deterministically at the sample rate — so place a GND pin immediately either side of it.}
+
+\Subsection{sec:iface-hazard}{Power-order hazard}
+\Body{The Nucleo can drive SCLK, DIN, CS and RESET (and START/PWDN if they cross) at 3.3 V while this board is off. The ADS1299's digital inputs are diode-clamped to DVDD, and SBAS499 §7.1 limits that current to 10 mA. Two measures, both required:}
+\Num{1}{\textbf{Firmware, primary protection.} The Nucleo keeps these pins as inputs, or drives them low, until the AFE is confirmed powered. SBAS499 §11.1 requires digital inputs to be low before and during power-up. Default SPI initialisation idles CS high, so this must be handled explicitly.}
+\Num{2}{\textbf{Hardware, backup.} A series resistor of \textbf{≥ 330 Ω} on each of these lines, at the header. That holds clamp current below 10 mA, about 8–9 mA worst case into an unpowered DVDD. For comparison, 33 Ω allows roughly 80–90 mA and does \textbf{not} protect; 220–270 Ω still allows 10–14 mA. At about 30 pF of load, 330 Ω gives a time constant near 10 ns — check the edges at the chosen SCLK. A series resistor on DOUT is optional and serves signal integrity only.}
+
+\begin{DocBox}{warnbg}{warnbar}{468bp}{450bp}
+\CT{Operating practice}
+\Single{0bp}{Switch the AFE board on \textbf{before} the Nucleo.}
+\end{DocBox}
+
+\Subsection{sec:iface-isolation}{Isolation status}
+\Body{The AFE board is \textbf{floating} — battery-powered and not referenced to protective earth. It is \textbf{not galvanically isolated}: the ribbon's shared ground bonds the electrode-side reference to Nucleo ground, and therefore to the host laptop's USB ground.}
+\Body{If the laptop's mains charger is connected, the electrode side becomes earth-referenced. That both degrades 50 Hz common-mode rejection and removes the safety benefit of running on battery.}
+
+\begin{DocBox}{warnbg}{warnbar}{468bp}{450bp}
+\CT{Constraint for every test on a human subject}
+\Single{0bp}{Until a digital isolator is fitted at the SPI barrier, the host laptop must run on its own battery with the charger \textbf{physically disconnected}. This is a known and accepted limitation of this revision, not an oversight. The isolator is tracked in \secref{sec:open-items}.}
+\end{DocBox}
+
+% ============================== Section 6 ============================
+\Section{sec:firmware}{Stage 4 — Firmware}
+\Body{Repository: \doclink{https://github.com/antosalra/move-emg-firmware}{github.com/antosalra/move-emg-firmware}, branch \mono{main}. Tests 19/19 passing under \mono{gcc -Wall -Wextra -Wconversion -Wshadow}.}
+
+\begin{DocTable}{50,250,168}
+\HeadIII{Stage}{Scope}{Status}
+\RowIII{1}{Signal processing — ring buffer, envelope}{Complete}
+\RowIII{2}{Intent detection + calibration}{Complete}
+\RowIII{3}{Embedded-safe C}{Complete}
+\RowIII{4A}{STM32 HAL + ADS1299 driver skeleton}{Started — placeholders only}
+\RowIII{4B}{Real SPI, ID read, acquisition}{Not started}
+\RowIII{5}{Motor control}{Not started}
+\end{DocTable}
+
+\Subsection{sec:fw-dsp}{Signal processing — confirmed correct}
+\begin{DocTable}{130,338}
+\HeadII{Parameter}{Value}
+\RowII{\textbf{Sample rate}}{1 kHz, \mono{dt} = 1 ms}
+\RowII{\textbf{High-pass}}{\mono{y[n] = alpha * (y[n-1] + x[n] - x[n-1])}, fc ≈ 20 Hz, \textbf{alpha = 0.8884}}
+\RowII{\textbf{Rectification}}{\mono{sqrtf(y*y)} — retained as an explicit design preference}
+\RowII{\textbf{Moving average}}{100 samples ≈ 100 ms, group delay ≈ 50 ms}
+\RowII{\textbf{Ring buffer}}{256 samples (capacity, distinct from the 100-sample window)}
+\RowII{\textbf{ADS1299 sinc³ filter}}{−3 dB ≈ 262 Hz — compatible with the EMG band}
+\end{DocTable}
+\Note{The alpha value and the formula in envelope.c are correct. RC/(RC + dt) and 1/(1 + 2·pi·fc·dt) are algebraically identical, and both give 0.8883647883 at fc = 20 Hz, dt = 1 ms.}
+
+\begin{DocBox}{callbg}{docblue}{468bp}{450bp}
+\CT{What the high-pass does not do}
+\Single{0bp}{20 Hz is below 50 Hz, so mains hum passes through it. Hum is handled by the driven bias and by CMRR. After rectification, residual hum smooths into a DC pedestal that raises the resting envelope baseline — which is why thresholds are measured, not assumed (\secref{sec:fw-intent}).}
+\end{DocBox}
+
+\Subsection{sec:fw-intent}{Intent detection}
+\Body{States: \mono{IDLE / CLOSING / HOLDING / OPENING}. Thresholds come from per-channel calibration, never hardcoded:}
+
+\begin{MonoBlock}
+threshold = baseline + k * (mvc - baseline)
+k_enter = 0.30    k_leave = 0.15
+\end{MonoBlock}
+
+\Bul{\textbf{Calibration:} ≈ 3 s relaxed → baseline; ≈ 3 s firm contraction → MVC. Flexor and extensor calibrate separately and will give different numbers.}
+\Bul{Validation currently rejects only \mono{mvc <= baseline}; no absolute floor chosen yet.}
+\Bul{\textbf{Hysteresis:} separate HI (enter) and LO (leave) thresholds, so noise smaller than the gap cannot flip the state.}
+\Bul{\textbf{Co-contraction} (both channels HIGH): hold the current state, treated as intentional.}
+\Bul{\textbf{Opening requires an active extensor contraction.} Relaxing the flexor does not open the hand — this is what lets the hand hold an object without sustained effort.}
+\Bul{\textbf{Dwell of 100 ms blocks leaving a state}, never the first response to a command, so it costs no first-response latency.}
+
+\Subsection{sec:fw-protected}{Protected code}
+\Body{Do not modify without asking:}
+\begin{MonoBlock}
+uint16_t index = (rb->head + WINDOW_SIZE - 1 - age) % WINDOW_SIZE;
+\end{MonoBlock}
+
+% ============================== Section 7 ============================
+\Section{sec:motor}{Stage 5 — Motor control and actuation}
+\Body{\textbf{Status: the motors spin under firmware control and follow the intent state} — \mono{motor\_apply()} drives CLOSING one way, OPENING the other, IDLE and HOLDING stopped. \textbf{The magnetic encoder is in progress.} Stage 5 proper (PWM speed control, limits, stall detection) is not yet written.}
+
+\Subsection{sec:motor-hw}{Hardware}
+\begin{DocTable}{70,230,168}
+\HeadIII{Item}{Part}{Notes}
+\RowIII{Motor}{Pololu \#2214, Micro Metal Gearmotor 100:1 HP 6 V, extended shaft}{1.7 kg·cm, 310 RPM}
+\RowIII{Driver}{Pololu \#2990, DRV8838 single brushed DC carrier}{1.7 A continuous, 1.8 A peak}
+\RowIII{Encoder}{Pololu \#3081, Magnetic Encoder Pair Kit, 12 CPR}{Solder pads, no JST SH crimping}
+\RowIII{Spool}{GT2 12T aluminium pulley, 3.175 mm bore}{Winds the tendon}
+\end{DocTable}
+
+\Subsection{sec:motor-pins}{Driver wiring and pin map}
+\Body{Verified on the bench and committed.}
+\begin{DocTable}{100,90,100,178}
+\HeadIV{DRV8838}{STM32}{Arduino socket}{CubeMX label}
+\RowIV{SLP}{PB9}{D14}{\mono{MOT\_SLP}}
+\RowIV{EN}{PD15}{D9}{\mono{MOT\_EN}}
+\RowIV{PH}{PB8}{D15}{\mono{MOT\_PH}}
+\RowIV{VCC}{Nucleo 3V3}{—}{Logic supply, 1.8–7 V}
+\RowIV{VIN (or VM)}{Motor supply +}{—}{6.0 V, \textbf{never from the Nucleo}}
+\RowIV{GND}{Nucleo GND \textbf{and} supply −}{—}{Shared ground, mandatory}
+\RowIV{OUT1 / OUT2}{—}{—}{Motor terminals}
+\end{DocTable}
+\Note{Pins kept clear for the AFE: D11–D13 for SPI1, D10 for the ADS1299 chip select, D8 (PF3) for the extensor test wire.}
+
+\Hthree{Control logic}
+\begin{DocTable}{70,70,70,258}
+\HeadIV{PHASE}{ENABLE}{SLEEP}{Result}
+\RowIV{0}{PWM}{1}{Forward at PWM \%}
+\RowIV{1}{PWM}{1}{Reverse at PWM \%}
+\RowIV{X}{0}{1}{\textbf{Brake} — outputs shorted to ground}
+\RowIV{X}{X}{0}{\textbf{Coast} — outputs floating}
+\end{DocTable}
+
+\Body{PHASE and ENABLE have ≈ 100 kΩ internal pull-downs, so the motor is stopped at power-up. SLEEP is pulled high through 10 kΩ on the carrier, so the driver is awake by default — which is why SLP is driven from a Nucleo pin rather than tied to 3V3: before firmware runs, the driver stays asleep and the motor cannot twitch during reset or flashing.}
+\Body{The brake-versus-coast distinction is the lever for HOLDING: ENABLE = 0 brakes and holds, SLEEP = 0 lets go.}
+\Body{\textbf{Prefer VIN over VM} where the carrier offers both — VIN is reverse-protected and the protection costs nothing.}
+
+\Subsection{sec:motor-power}{Motor power — separate from the AFE}
+\Body{Motor power never shares the AFE's NiMH pack. During bench work the motor runs from a lab supply; in the finished prosthesis it gets its own pack.}
+
+\begin{DocBox}{warnbg}{warnbar}{468bp}{450bp}
+\CT{Two rules for the bench supply}
+\Bul{\textbf{Use the current limit as a hardware safety net.} Set roughly 0.3–0.5 A before switching on. A free-running motor draws about 0.1 A, so this is ample to spin while limiting damage from a wiring fault. The stall current of these motors is close to the DRV8838's continuous rating, so an unprotected stall sits at the driver's limit.}
+\Bul{\textbf{A lab supply is mains-tied.} It is fine for motor bring-up with no electrodes on a person, and must never be in the system while a human is connected to the electrode side.}
+\end{DocBox}
+
+\Subsection{sec:motor-feedback}{Position and limit feedback — the Stage 5 boundary}
+\Body{V1 has no position feedback, so nothing tells OPENING when the hand is actually open. \textbf{This belongs to the motor-control layer, not to \mono{intent.c}.} Intent reports what the user wants; motor control decides whether the hardware can deliver it and clamps when it cannot.}
+
+\begin{MonoBlock}
+flexor_env   ──┐
+               ├──► intent.c ──► desired state ──┐
+extensor_env ──┘                                 │
+                                                 ▼
+                                          motor control
+                                                 ▲
+                                       position / limits
+\end{MonoBlock}
+
+\Body{Planned arbitration, to be written in Stage 5:}
+\begin{DocTable}{110,200,158}
+\HeadIII{Desired state}{Hardware condition}{Motor action}
+\RowIII{CLOSING}{at closed limit}{Stop — clamp}
+\RowIII{CLOSING}{current above stall threshold}{Stop — jam, or gripping firmly}
+\RowIII{OPENING}{at open limit}{Stop — clamp}
+\RowIII{OPENING}{run-time exceeded}{Stop — safety timeout}
+\RowIII{HOLDING}{drivetrain backdrivable}{Low duty to maintain tension}
+\RowIII{HOLDING}{non-backdrivable}{Motor off, gearbox holds}
+\RowIII{IDLE}{any}{Motor off}
+\end{DocTable}
+\Note{The clamp is a stop, not a state change — intent.c keeps reporting OPENING while the user contracts, and the motor layer simply refuses to execute it.}
+
+\Body{\textbf{Stall detection matters more here than in a rigid hand.} The series-elastic tendon coupling absorbs a jam, so a blocked tendon looks mechanically normal while the spring stretches. Software must catch what the mechanism hides. High current during CLOSING is genuinely ambiguous — firm grip or jam — so log current traces during bench testing before setting a threshold.}
+
+% ============================== Section 8 ============================
+\Section{sec:mech}{Stage 6 — Mechanical hand}
+\Body{\textbf{Status: several iterations of the palm and fingers have been printed. Two defects are open and block a usable grasp} — \secref{sec:mech-defects}.}
+
+\Subsection{sec:mech-principle}{Principle}
+\Body{The hand is \textbf{underactuated}: one motor, one tendon per digit, more joints than actuators. When a phalanx meets the object it stops, and the same tendon pull redistributes to the next free joint, so the finger wraps until every link finds the surface. The object decides the final shape; no sensing and no code are involved.}
+\Body{This matches the control input exactly. The EMG chain produces one coarse intent, so one actuator is the right answer — dexterity that cannot be commanded is not worth building.}
+
+\Subsection{sec:mech-finger}{Finger architecture}
+\begin{DocTable}{110,358}
+\HeadII{Item}{Specification}
+\RowII{\textbf{Phalanges}}{3 — proximal, middle, distal}
+\RowII{\textbf{Joints}}{3 — MCP, PIP, DIP, all driven by one tendon}
+\RowII{\textbf{Joint type}}{Clevis (fork and tongue), tongue proximal, fork distal, so phalanges chain}
+\RowII{\textbf{Pins}}{1.5–2 mm steel. \textbf{Never printed} — printed pins shear or wear oval}
+\RowII{\textbf{Tendon}}{Braided Dyneema, ≥ 200 N, palmar side, anchored at the fingertip}
+\RowII{\textbf{Moment arm}}{≈ 5 mm below each pin — the lever that turns pull into curl}
+\RowII{\textbf{Return}}{Dorsal elastic cord, one per digit}
+\RowII{\textbf{Guides}}{PTFE tube in the tendon channels}
+\end{DocTable}
+\Note{The tendon must pass on the palmar side of every joint axis. Routed through the pin, the moment arm is zero and nothing bends, however hard it is pulled.}
+
+\Body{\textbf{Thumb:} 2 phalanges, 2 driven joints, plus a manually set CMC opposition joint. Opposition angle is set by an \textbf{interchangeable indexed wedge} — a set of cylinders cut at different angles, keyed by a 12-sided polygon so it cannot rotate under load. This turns the opposition angle from a CAD guess into a bench experiment. Rotating a cut cylinder sweeps a cone, so cut angle sets how far off-axis the thumb points and rotation sets the direction; the two are not independent.}
+
+\begin{DocBox}{callbg}{docblue}{468bp}{450bp}
+\CT{Thumb-to-finger check}
+\Single{0bp}{Thumb tip and index tip should meet at roughly 60–70 \% of full flexion, not at 100 \%. Meeting only at maximum closure leaves no force margin, and any object thickness then pushes them apart.}
+\end{DocBox}
+
+\Subsection{sec:mech-coupling}{Tendon coupling — series elastic}
+\Body{Each tendon joins a short, relatively stiff spring; all springs join a floating bar; the bar's centre is pulled by a single line wound on the motor spool.}
+
+\begin{MonoBlock}
+        motor spool
+             │
+         ┌───┴───┐   floating bar tilts when a digit stalls
+      ───┤  bar  ├───
+      │  │       │  │
+      I  M       R  P      + thumb
+\end{MonoBlock}
+
+\Body{The springs supply the degrees of freedom a rigid bar lacks: a bar has only two (translate, tilt) against five tendons, so springs let each digit sit at its own position. When a finger contacts the object and stops, continued pull stretches that spring, so its tension and grip force rise while the free fingers keep closing at gentle tension.}
+\Body{\textbf{Cost:} every millimetre a spring stretches is a millimetre that did not close a finger. Budget roughly 40 mm of tendon travel to close a finger plus about 20 mm of differential travel, so the motor needs around \textbf{60 mm of stroke} — about 1.6 turns on a 6 mm spool. \textbf{A standard 180° servo cannot deliver this}, which is why the design uses a geared DC motor.}
+\Body{\textbf{Assemble the springs with light pretension.} Slack springs create a dead zone where the motor turns and nothing moves.}
+
+\Subsection{sec:mech-defects}{Open defects}
+\Body{Two faults are confirmed on the printed iterations. Both must be closed before the hand is usable.}
+
+\Subsubsection{sec:mech-defect1}{Defect 1 — the fingers do not close completely when the tendons are pulled}
+\Body{Diagnose in this order, isolating one variable at a time:}
+\Num{1}{\textbf{Remove the dorsal elastic and pull by hand.} If the finger now closes fully, the return cord is too stiff and is simply outpulling the tendon. Swap to a thinner cord.}
+\Num{2}{\textbf{Check for segment collision.} If a joint stops hard at part travel, the palmar relief is too shallow and the phalanges are meeting before they have folded. Deepen the palmar relief cut — this is the most likely cause, and it is what limits curl on equal-length phalanges in particular.}
+\Num{3}{\textbf{Check tendon friction.} Pull the bare tendon through the channels with the finger disassembled. Rough or sharp channel mouths bind. Ream the channels and fillet the exits.}
+\Num{4}{\textbf{Check the moment arm at each joint.} The tendon must stay palmar of every pin across the joint gap. If it rides up toward the pin at one joint, that joint receives almost no torque and will be the one that fails to close.}
+
+\Subsubsection{sec:mech-defect2}{Defect 2 — the fingers overextend dorsally; a stopping mechanism is required}
+\Body{The fix is geometric and costs nothing in parts. The joint must be \textbf{asymmetric}: the palmar side is relieved so the phalanges can fold to about 90°, while the \textbf{dorsal faces stay flat so they butt against each other at 0°}. Those touching flats are the hard stop.}
+
+\begin{MonoBlock}
+     DORSAL (back) — flat faces TOUCH at 0° = hard stop
+    ┌───────────────●───────────────┐
+    │            pin axis           │
+    │     ▲ moment arm ≈ 5 mm       │
+    └─────┼──── relieved ───────────┘
+          ●  tendon runs PALMAR (below the pin)
+     PALMAR (front) — cut back so the joint can fold
+\end{MonoBlock}
+
+\Body{Add this dorsal flat to every joint in the current geometry. It also defines the finger's rest pose, so the hand sits straight when relaxed instead of flopping backward.}
+
+\Subsection{sec:mech-build}{Build discipline}
+\Body{Print a \textbf{single test joint} — two short stubs with one clevis — before printing a whole finger, and tune the pin fit and the tongue-to-ear clearance on it. These two numbers are printer-specific, and getting them from a ten-minute coupon rather than a full finger is the difference between two iterations and five.}
+\Body{Thread the tendon \textbf{before} pinning the joints. Threading an assembled finger is miserable. Ream every hole and channel by hand after printing; FDM holes always come out undersize.}
+
+% ============================== Section 9 ============================
+\Section{sec:bringup}{Bring-up and acceptance}
+\Body{The AFE board is considered working when it passes these steps \textbf{in order}. Each step isolates a different failure class; do not skip ahead.}
+
+\Num{0}{\textbf{Power section, before anything else.} With the pack connected and the switch on, confirm VBAT at its test point matches the pack, and AVDD and DVDD are within tolerance. Confirm the reverse-polarity FET is passing — the drop across Q1 should be negligible. A 0.3–0.6 V drop means the body diode is conducting and the FET is oriented wrong. Capture AVDD and DVDD on two scope channels at switch-on and confirm they rise together.}
+\Num{1}{\textbf{Power-on, no electrodes.} Verify AVDD, AVSS, DVDD and VREFP at their test points. Power LED on.}
+\Num{2}{\textbf{SPI and device ID.} Wait for the device to settle before the first SPI transaction — with 100 µF on VCAP1 this can take longer than the 150 ms the spec quotes, so watch the VCAP1 test point — then issue RESET and read the ID register. Proves assembly, SPI and power together.}
+\Num{3}{\textbf{Internal test signal.} Configure the channels to the internal square wave and capture it cleanly. Proves the full acquisition path digitally, independent of electrodes.}
+\Num{4}{\textbf{Shorted-input noise floor.} Short the inputs internally, measure noise, compare against the datasheet tables. Confirms decoupling and supply quality.}
+\Num{5}{\textbf{Real EMG.} Precondition: the host laptop runs on its own battery with the mains charger physically disconnected (\secref{sec:iface-isolation}). Connect electrodes and observe EMG on flex and relax of each muscle.}
+\Num{6}{\textbf{Bias verification.} Record with the bias electrode connected and disconnected. 50 Hz hum should drop substantially with it connected. Confirms the DRL is wired correctly.}
+
+\begin{DocBox}{callbg}{docblue}{468bp}{450bp}
+\CT{Step 2 is where boards get wrongly condemned}
+\Single{0bp}{A premature ID read is a more common cause of failure at this step than an actual assembly fault. Rule out timing before reworking the TQFP.}
+\end{DocBox}
+
+\Subsection{sec:bringup-provisions}{Test and debug provisions}
+\Bul{\textbf{Test points on} VBAT (raw pack voltage, upstream of the regulators), AVDD, AVSS, DVDD, VREFP, VCAP1, BIASOUT, DRDY and GND. VBAT shows the pack sagging toward the 6.0 V cutoff before it appears as noise; VCAP1 shows when the device is ready for reset (> 1.1 V, step 2).}
+\Bul{\textbf{Power LED on DVDD}, high-efficiency type with a ≈ 1 kΩ series resistor (≈ 1 mA). A conventional 20 mA indicator would draw roughly twice the entire rest of the board.}
+\Bul{\textbf{Series resistors} on all Nucleo-driven lines, populated at ≥ 330 Ω, never 0 Ω.}
+\Bul{\textbf{Keep-out and probe access} around the IC.}
+
+% ============================== Section 10 ===========================
+\Section{sec:materials}{Material list}
+\Body{\textbf{✓ = ordered or in hand. ☐ = not yet ordered.} Update the marker as items arrive.}
+
+\Subsection{sec:mat-afe}{AFE board}
+\begin{DocTable}{190,50,190,38}
+\HeadIV{Item}{Qty}{Purpose}{Status}
+\RowIV{ADS1299-4PAGR}{2}{AFE + spare. TQFP-64, MSL 3}{✓}
+\RowIV{TPS7A4901DGNT}{4}{AVDD and DVDD LDOs, plus spares}{✓}
+\RowIV{\textbf{PCB fabrication, 4-layer, fully assembled}}{—}{Ordered with every component populated. Includes stencil}{☐}
+\RowIV{\textbf{DIN 42802 1.5 mm touchproof male jacks, PCB-mount}}{5}{Electrode inputs. Obtain the mechanical drawing before the footprint}{☐}
+\RowIV{\textbf{TPD4E1B06DCKR ESD arrays}}{—}{Mandatory on all analog inputs}{☐}
+\RowIV{\textbf{Q1 P-channel MOSFET}, Vds ≥ 20 V, Vgs(max) ≥ 20 V}{—}{Reverse-polarity protection}{☐}
+\RowIV{\textbf{F1 PTC fuse}, ≈ 100 mA hold}{—}{Fault-current limit}{☐}
+\RowIV{\textbf{SW1 power switch}, ≥ 500 mA}{—}{On/off}{☐}
+\RowIV{\textbf{Passives per \secref{sec:afe-decoupling}}, incl. VCAP1 100 µF tantalum}{—}{Decoupling. Part of the assembly BOM}{☐}
+\RowIV{\textbf{J\_PWR keyed connector} (JST-XH/PH) + housing and crimps}{—}{Battery input}{☐}
+\end{DocTable}
+
+\Subsection{sec:mat-power}{AFE power}
+\begin{DocTable}{190,50,190,38}
+\HeadIV{Item}{Qty}{Purpose}{Status}
+\RowIV{\textbf{LSD NiMH AA cells} (Eneloop class)}{2 sets of 6}{Board supply. NiMH confirmed as the chemistry}{☐}
+\RowIV{\textbf{6×AA battery holder}, lead ≤ 15 cm}{1}{Off-board, never PCB-mounted}{☐}
+\RowIV{\textbf{Per-slot smart charger}}{1}{Cells charged individually, never as a series pack}{☐}
+\end{DocTable}
+
+\Subsection{sec:mat-control}{Control and actuation}
+\begin{DocTable}{190,50,190,38}
+\HeadIV{Item}{Qty}{Purpose}{Status}
+\RowIV{NUCLEO-H753ZI}{1}{MCU board}{✓}
+\RowIV{Micro Metal Gearmotor 100:1 HP 6 V, extended shaft (\#2214)}{2}{Tendon winch}{✓}
+\RowIV{Magnetic Encoder Pair Kit 12 CPR (\#3081)}{2 packs}{4 boards for 2 motors}{✓}
+\RowIV{DRV8838 carrier (\#2990)}{4}{2 in use, 2 spare}{✓}
+\RowIV{Motor bracket pair (\#989)}{2 packs}{Bench mounting}{✓}
+\RowIV{Jumper wires M/M, 40p}{1}{Bench only — not for the AFE link}{✓}
+\RowIV{0603 resistor assortment, 45 values ±1 \%}{1}{General}{✓}
+\RowIV{33 Ω 1/2 W through-hole}{100}{General — note: 33 Ω does not protect the AFE inputs, ≥ 330 Ω is required}{✓}
+\RowIV{2.54 mm header strips}{112}{General}{✓}
+\RowIV{22 AWG silicone wire, 8 colours × 5 m}{1}{General}{✓}
+\end{DocTable}
+
+\Subsection{sec:mat-mech}{Mechanical}
+\begin{DocTable}{190,50,190,38}
+\HeadIV{Item}{Qty}{Purpose}{Status}
+\RowIV{GT2 12T aluminium pulley, 3.175 mm bore}{2}{Tendon spool}{✓}
+\RowIV{Braided Dyneema line, ≥ 200 N}{1}{Tendon}{✓}
+\RowIV{PTFE tube 1 mm ID × 2 mm OD}{2 m}{Tendon guide}{✓}
+\RowIV{PTFE tube 2 mm ID × 4 mm OD}{4 m}{Tendon guide}{✓}
+\RowIV{Extension spring assortment, 100 pc / 25 sizes}{1}{Series-elastic differential — rate tuned empirically}{✓}
+\RowIV{Elastic cord 1 mm × 10 m}{1}{Dorsal finger return}{✓}
+\RowIV{Screw assortment M1.6–M3}{1000}{General}{✓}
+\RowIV{\textbf{Steel pin stock, 1.5 mm and 2.0 mm}}{≈ 1 m each}{Joint pins. Never printed}{☐}
+\RowIV{\textbf{Filament — PLA and PETG}}{as needed}{PLA for iteration, PETG where load concentrates}{☐}
+\end{DocTable}
+
+\Subsection{sec:mat-consumables}{Electrodes and consumables}
+\begin{DocTable}{190,50,190,38}
+\HeadIV{Item}{Qty}{Purpose}{Status}
+\RowIV{H124SG Ag/AgCl electrodes}{1 pack}{5 in use per session, disposable}{✓}
+\RowIV{Snap-to-DIN 1.5 mm touchproof leads}{5 + spares}{Electrode to board}{✓}
+\RowIV{Nuprep skin prep gel}{1}{Abrasion before electrode placement}{✓}
+\RowIV{IPA 99.9 \%, 500 ml}{1}{Skin prep}{✓}
+\RowIV{Alcohol swabs}{200}{Skin prep}{✓}
+\RowIV{Lint-free cellulose pads}{300}{Skin prep}{✓}
+\end{DocTable}
+
+\begin{DocBox}{warnbg}{warnbar}{468bp}{450bp}
+\CT{Before placing the assembled-board order}
+\Single{0bp}{Confirm the DIN 42802 jack is sourced and its footprint drawn. It is the one part on the board with no distributor substitute, and a wrong footprint forces a respin.}
+\end{DocBox}
+
+% ============================== Section 11 ===========================
+\Section{sec:open}{Open items and working agreements}
+
+\Subsection{sec:open-items}{Open items}
+\begin{DocTable}{25,233,150,60}
+\HeadIV{\#}{Item}{Blocks}{Area}
+\RowIV{1}{\textbf{AFE layout} — in progress. Routing, partitioning, footprint for the DIN 42802 jack}{The board order, and therefore Stage 4B}{AFE}
+\RowIV{2}{\textbf{Finger closure defect} — fingers do not close fully on tendon pull (\secref{sec:mech-defect1})}{A usable grasp}{Mechanical}
+\RowIV{3}{\textbf{Dorsal hard stop} — fingers overextend; flats must contact at 0° (\secref{sec:mech-defect2})}{A usable grasp}{Mechanical}
+\RowIV{4}{\textbf{Magnetic encoder} — in progress}{Closed-loop motor control}{Actuation}
+\RowIV{5}{\textbf{SPI peripheral and EXTI pin} not chosen}{Blocked on the AFE header pinout}{Firmware}
+\RowIV{6}{\textbf{DMA on DRDY vs interrupt-driven byte reads}}{Pick whichever debugs more easily first}{Firmware}
+\RowIV{7}{\textbf{USB framing to the laptop}}{Unconstrained by the AFE board}{Firmware}
+\RowIV{8}{\textbf{Verify the OPENING → CLOSING transition} fires when the flexor goes HIGH before the extensor has fallen below its LO threshold. A direct-reversal test exists and passes; confirm it covers this case, since it is what a user produces when grabbing again immediately after releasing}{Grasp reliability}{Firmware}
+\RowIV{9}{\textbf{Digital isolator at the SPI barrier} — deferred. On a future board revision, or on a ribbon interposer that leaves this board untouched}{Removes the charger-disconnected constraint}{AFE}
+\RowIV{10}{\textbf{Absolute floor for calibration validation} — currently only mvc ≤ baseline is rejected}{Robustness of intent detection}{Firmware}
+\end{DocTable}
+
+\Subsection{sec:open-agreements}{Working agreements}
+\Num{1}{\mono{src/} stays platform-independent; all STM32 and ADS1299 code lives in \mono{platform/stm32/}. Nothing hardware-specific enters \mono{intent.c}.}
+\Num{2}{Position and limit feedback belong to motor control in Stage 5, never to intent detection.}
+\Num{3}{Do not change the protected ring-buffer index calculation (\secref{sec:fw-protected}) without asking.}
+\Num{4}{ISRs stay minimal — acquisition inside the ISR, processing outside it.}
+\Num{5}{Deterministic, bounded execution; no dynamic memory without a reason.}
+\Num{6}{Strict compiler warnings stay clean.}
+\Num{7}{Add tests when algorithm behaviour changes.}
+\Num{8}{Explain STM32 and ADS1299 concepts — this is a first STM32 project. Teach the concept before the driver code; no unexplained driver dumps.}
+\Num{9}{Distinguish implemented / planned / optional / deferred / experimental.}
+\Num{10}{Derive the schematic before ordering more parts.}
+\Num{11}{Validate cheap before committing: a single printed test joint before a whole hand, a staged bring-up before trusting a board.}
+\Num{12}{Thresholds and limits are measured on real hardware, never assumed. Every number in this document that came from reasoning rather than measurement is provisional until the bench confirms it.}
+
+\Subsection{sec:open-authority}{Document authority}
+\Body{Where documents disagree: the TI datasheet SBAS499 wins on anything about the ADS1299; Pololu product pages win on the motor, encoder and driver; \mono{Cacao\_AFE\_to\_Nucleo\_Interface\_Notes.md} (Elias) wins on the board-to-Nucleo boundary; this document covers everything else.}
+
+\end{document}
