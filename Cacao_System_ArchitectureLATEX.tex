@@ -477,6 +477,7 @@
 \RowIV{1.3}{05.10.2026}{Elias Asmus}{ADS1299-4 EMG Front-End PCB Project Definition. Merged into this document as \secref{sec:afe} and \secref{sec:iface}.}
 \RowIV{2.0}{15.09.2026}{Antonio Salas}{Cacao System Architecture — firmware and hardware state. Superseded.}
 \RowIV{3.0}{02.11.2026}{Antonio Salas}{Consolidation. Both documents above merged into one and re-ordered along the signal pipeline. Authority order replaced by a project summary. Purchase orders replaced by a material list with order status. Current AFE layout, actuation and mechanical state recorded, including the two open finger defects.}
+\RowIV{3.1}{03.11.2026}{Elias Asmus}{Revised \secref{sec:afe} and \secref{sec:materials} for in-house assembly. Raised the battery low cutoff in \secref{sec:afe-power} from 6.0~V to 6.6~V due to LDO limitation (see SBVS121E section 9.2.2). Closed the open item ``footprint for the DIN 42802 jack'' in \secref{sec:open-items}. Removed the statement on separate motor battery pack from \secref{sec:motor-power} (undecided; unlikely to be adopted). Scoped the signal-processing values in \secref{sec:fw-dsp} to 1~kSPS.}
 \end{DocTable}
 \newpage
 
@@ -570,7 +571,7 @@ STM32H753ZI  (NUCLEO-H753ZI)
 
 % ============================== Section 4 ============================
 \Section{sec:afe}{Stage 2 — AFE board (ADS1299-4)}
-\Body{\textbf{Status: schematic complete in Altium, layout in progress.} The board will be ordered fully assembled, with every component populated by the fabricator. Authoritative reference for anything about the chip is the TI datasheet SBAS499; where it gives only a topology, the value below applies.}
+\Body{\textbf{Status: schematic complete in Altium, layout in progress.} The board will be ordered unpopulated, with component assembly performed in-house by our electronics team. Authoritative reference for anything about the chip is the TI datasheet SBAS499; where it gives only a topology, the value below applies.}
 
 \Subsection{sec:afe-device}{Device configuration}
 \begin{DocTable}{130,338}
@@ -596,7 +597,7 @@ STM32H753ZI  (NUCLEO-H753ZI)
 \RowIII{VREF}{4.5 V internal}{See \secref{sec:afe-ref}}
 \end{DocTable}
 
-\Body{\textbf{Pack:} 6× AA low-self-discharge NiMH (Eneloop class), 7.2 V nominal, operating window 6.0 V to 8.7 V. Off-board holder on a lead ≤ 15 cm, keyed connector, never mounted on the PCB. Charged externally in a per-slot smart charger, cells individually, never as a series pack. Board draw is roughly 10 mA, so runtime is not a design driver.}
+\Body{\textbf{Pack:} 6× AA low-self-discharge NiMH (Eneloop class), 7.2 V nominal, operating window 6.6 V to 8.7 V. Off-board holder on a lead ≤ 15 cm, keyed connector, never mounted on the PCB. Charged externally in a per-slot smart charger, cells individually, never as a series pack. Board draw is roughly 10 mA, so runtime is not a design driver.}
 
 \Body{\textbf{The board must survive 6× fresh alkaline AA (≈ 9.6 V) fitted by mistake.} This is why both LDOs are rated Vin ≥ 16 V, and why common 5.5 V-max SOT-23 parts are excluded.}
 
@@ -738,7 +739,7 @@ Pack → J_PWR → F1 (PTC) → SW1 → Q1 (rev-polarity) → C_BULK ─┬─ U
 \RowIII{5}{Motor control}{Not started}
 \end{DocTable}
 
-\Subsection{sec:fw-dsp}{Signal processing — confirmed correct}
+\Subsection{sec:fw-dsp}{Signal processing — confirmed correct for 1kSPS}
 \begin{DocTable}{130,338}
 \HeadII{Parameter}{Value}
 \RowII{\textbf{Sample rate}}{1 kHz, \mono{dt} = 1 ms}
@@ -817,7 +818,7 @@ uint16_t index = (rb->head + WINDOW_SIZE - 1 - age) % WINDOW_SIZE;
 \Body{\textbf{Prefer VIN over VM} where the carrier offers both — VIN is reverse-protected and the protection costs nothing.}
 
 \Subsection{sec:motor-power}{Motor power — separate from the AFE}
-\Body{Motor power never shares the AFE's NiMH pack. During bench work the motor runs from a lab supply; in the finished prosthesis it gets its own pack.}
+\Body{Motor power never shares the AFE's NiMH pack. During bench work the motor runs from a lab supply.}
 
 \begin{DocBox}{warnbg}{warnbar}{468bp}{450bp}
 \CT{Two rules for the bench supply}
@@ -1018,7 +1019,7 @@ extensor_env ──┘                                 │
 \end{DocTable}
 
 \begin{DocBox}{warnbg}{warnbar}{468bp}{450bp}
-\CT{Before placing the assembled-board order}
+\CT{Before placing the board order}
 \Single{0bp}{Confirm the DIN 42802 jack is sourced and its footprint drawn. It is the one part on the board with no distributor substitute, and a wrong footprint forces a respin.}
 \end{DocBox}
 
@@ -1028,7 +1029,7 @@ extensor_env ──┘                                 │
 \Subsection{sec:open-items}{Open items}
 \begin{DocTable}{25,233,150,60}
 \HeadIV{\#}{Item}{Blocks}{Area}
-\RowIV{1}{\textbf{AFE layout} — in progress. Routing, partitioning, footprint for the DIN 42802 jack}{The board order, and therefore Stage 4B}{AFE}
+\RowIV{1}{\textbf{AFE layout} — in progress. Routing, partitioning and fab rules.}{The board order, and therefore Stage 4B}{AFE}
 \RowIV{2}{\textbf{Finger closure defect} — fingers do not close fully on tendon pull (\secref{sec:mech-defect1})}{A usable grasp}{Mechanical}
 \RowIV{3}{\textbf{Dorsal hard stop} — fingers overextend; flats must contact at 0° (\secref{sec:mech-defect2})}{A usable grasp}{Mechanical}
 \RowIV{4}{\textbf{Magnetic encoder} — in progress}{Closed-loop motor control}{Actuation}
